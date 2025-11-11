@@ -54,8 +54,8 @@ if manpower_file and stylelist_file and raweff_file:
 
         # fill eff from raweff
         st.write("🔍 กำลังเติมค่า eff ...")
-        final_table = pd.merge(final_table, raweff[["id", "line", "eff"]],
-                               on=["id", "line"], how="left")
+        final_table = pd.merge(final_table, raweff[["id", "style", "eff"]],
+                               on=["id", "style"], how="left")
 
         # ---------------------------------------------------------
         # 4. Filter missing eff
