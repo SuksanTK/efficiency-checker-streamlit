@@ -24,7 +24,39 @@ if manpower_file and stylelist_file and raweff_file and mastergwc_file and indiv
     individual_eff = pd.read_csv(individual_eff_file)
 
     st.success("✅ ทุกไฟล์โหลดสำเร็จแล้ว!")
+    # ---------------------------------------------------------
+    # 3️⃣ ตรวจสอบคอลัมน์ที่จำเป็น
+    # ---------------------------------------------------------
+    required_cols_map = {
+        "manpower": {"id", "line", "jobtitle"},
+        "stylelist": {"line", "style"},
+        "raweff": {"id", "style", "eff", "jobtitle", "GWC"}, # เปลี่ยน gwc เป็น GWC ตามที่ใช้ในโค้ด
+        "individual_eff": {"id", "eff %"},
+        "master_gwc": {"style", "GWC"}, # เปลี่ยน gwc เป็น GWC ตามที่ใช้ในโค้ด
+    }
+    
+    dataframes = {
+        "manpower": manpower,
+        "stylelist": stylelist,
+        "raweff": raweff,
+        "individual_eff": individual_eff, # เปลี่ยนชื่อให้สั้นลงเพื่อการตรวจสอบ
+        "master_gwc": master_gwc
+    }
 
+    for name, req in required_cols_map.items():
+        # ดึง DataFrame ที่ต้องการตรวจสอบ
+        df = dataframes[name] 
+        missing = req - set(df.columns)
+        
+        if missing:
+            st.error(f"❌ ไฟล์ **{name}** ขาดคอลัมน์ที่จำเป็น: {', '.join(missing)}")
+            st.stop() # หยุดการทำงานของ Streamlit ทันทีหากมีข้อผิดพลาด
+            
+    # ---------------------------------------------------------
+    # 3. Merge เพื่อหา missing eff ก่อน
+    # ---------------------------------------------------------
+    st.write("⚙️ กำลังรวมข้อมูล ID, Line, Style ...")
+    # ... โค้ดที่เหลือทั้งหมด ...
     
     # ---------------------------------------------------------
     # 3. Merge เพื่อหา missing eff ก่อน
