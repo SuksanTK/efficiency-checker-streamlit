@@ -1,105 +1,132 @@
 import streamlit as st
 import pandas as pd
 
-st.title("🧩 Efficiency Checker & Filler")
+st.set_page_config(page_title="Efficiency Checker (Advanced)", page_icon="📊", layout="wide")
+st.title("📊 Efficiency Checker Tool (Advanced Version)")
+st.write("อัปโหลดไฟล์ทั้ง 5 แล้วกดปุ่มเพื่อดูพนักงานที่ยังไม่มีค่า Eff (ก่อนเติมข้อมูล) พร้อมผลลัพธ์หลังเติมตามเงื่อนไข")
 
 # ---------------------------------------------------------
-# 1. Upload CSV Files
+# 1️⃣ Upload files
 # ---------------------------------------------------------
-st.header("📂 Upload CSV Files")
-manpower_file = st.file_uploader("Upload manpower file", type=["csv"])
-stylelist_file = st.file_uploader("Upload stylelist file", type=["csv"])
-raweff_file = st.file_uploader("Upload raweff file", type=["csv"])
-mastergwc_file = st.file_uploader("Upload Master_GWC file", type=["csv"])
-individual_eff_file = st.file_uploader("Upload individual_efficiency file", type=["csv"])
+manpower_file = st.file_uploader("📂 Upload Manpower CSV", type=["csv"])
+stylelist_file = st.file_uploader("📂 Upload Stylelist CSV", type=["csv"])
+raweff_file = st.file_uploader("📂 Upload Raweff CSV", type=["csv"])
+ind_eff_file = st.file_uploader("📂 Upload Individual Efficiency CSV", type=["csv"])
+master_gwc_file = st.file_uploader("📂 Upload Master GWC CSV", type=["csv"])
 
-if manpower_file and stylelist_file and raweff_file and mastergwc_file and individual_eff_file:
-    # ---------------------------------------------------------
-    # 2. Load all CSV files
-    # ---------------------------------------------------------
-    manpower = pd.read_csv(manpower_file)
-    stylelist = pd.read_csv(stylelist_file)
-    raweff = pd.read_csv(raweff_file)
-    master_gwc = pd.read_csv(mastergwc_file)
-    individual_eff = pd.read_csv(individual_eff_file)
+if all([manpower_file, stylelist_file, raweff_file, ind_eff_file, master_gwc_file]):
+    st.success("✅ Upload ครบทั้ง 5 ไฟล์แล้ว พร้อมตรวจสอบ")
 
-    st.success("✅ ทุกไฟล์โหลดสำเร็จแล้ว!")
+    if st.button("🚀 รันตรวจสอบข้อมูล"):
+        # ---------------------------------------------------------
+        # 2️⃣ Load data
+        # ---------------------------------------------------------
+        st.write("📖 กำลังอ่านข้อมูลจากไฟล์...")
+        manpower = pd.read_csv(manpower_file)
+        stylelist = pd.read_csv(stylelist_file)
+        raweff = pd.read_csv(raweff_file, low_memory=False)
+        ind_eff = pd.read_csv(ind_eff_file, low_memory=False)
+        master_gwc = pd.read_csv(master_gwc_file)
 
-    # ---------------------------------------------------------
-    # 3. Merge เพื่อหา missing eff ก่อน
-    # ---------------------------------------------------------
-    st.write("⚙️ กำลังรวมข้อมูล ID, Line, Style ...")
-    merged = pd.merge(manpower, stylelist, on="line", how="left")
-    final_table = merged[["id", "line", "style"]].copy()
+        # แปลงชื่อคอลัมน์เป็นตัวพิมพ์เล็ก
+        for df in [manpower, stylelist, raweff, ind_eff, master_gwc]:
+            df.columns = df.columns.str.lower().str.strip()
 
-    st.write("🔍 กำลังเติมค่า eff จาก raweff ...")
-    final_table = pd.merge(final_table, raweff[["id", "style", "eff"]], on=["id", "style"], how="left")
+        # ---------------------------------------------------------
+        # 3️⃣ ตรวจสอบคอลัมน์ที่จำเป็น
+        # ---------------------------------------------------------
+        required_cols = {
+            "manpower": {"id", "line", "jobtitle"},
+            "stylelist": {"line", "style"},
+            "raweff": {"id", "style", "eff", "jobtitle", "gwc"},
+            "individual_efficiency": {"id", "eff %"},
+            "master_gwc": {"style", "gwc"},
+        }
 
-    # หาเฉพาะข้อมูลที่ eff ว่าง
-    missing_eff = final_table[final_table["eff"].isna()].sort_values(by=["line", "id"]).copy()
+        for name, req in required_cols.items():
+            df = eval(name.replace("individual_efficiency", "ind_eff").replace("master_gwc", "master_gwc"))
+            missing = req - set(df.columns)
+            if missing:
+                st.error(f"❌ ไฟล์ {name} ขาดคอลัมน์: {missing}")
+                st.stop()
 
-    st.write(f"📊 พบข้อมูลที่ไม่มี eff จำนวน: {len(missing_eff)} แถว")
+        # ---------------------------------------------------------
+        # 4️⃣ รวมข้อมูลพื้นฐาน
+        # ---------------------------------------------------------
+        merged = pd.merge(manpower, stylelist, on="line", how="left")
+        final_table = merged[["id", "line", "style", "jobtitle"]].copy()
 
-    # ---------------------------------------------------------
-    # 4. เติม GWC และ jobtitle
-    # ---------------------------------------------------------
-    st.write("🧠 เติมคอลัมน์ GWC และ Jobtitle ...")
+        # เติมค่า GWC จาก Master GWC
+        final_table = pd.merge(final_table, master_gwc[["style", "gwc"]], on="style", how="left")
 
-    # เติม GWC จาก master_gwc โดยใช้ style เป็นตัวเชื่อม
-    missing_eff = pd.merge(missing_eff, master_gwc[["style", "GWC"]], on="style", how="left")
+        # เติมค่า eff จาก raweff (เชื่อมด้วย id + style)
+        final_table = pd.merge(final_table, raweff[["id", "style", "eff"]], on=["id", "style"], how="left")
 
-    # เติม jobtitle จาก raweff โดยใช้ id, GWC เป็นตัวเชื่อม
-    missing_eff = pd.merge(
-        missing_eff,
-        raweff[["id", "GWC", "jobtitle"]],
-        on=["id", "GWC"],
-        how="left",
-        suffixes=("", "_from_raweff")
-    )
+        # --- 🔍 เก็บชุดข้อมูลที่ "ไม่มี eff เดิม" ก่อนจะเติม ---
+        missing_eff_initial = final_table[final_table["eff"].isna()].copy()
 
-    # หาก jobtitle ยังว่าง เติมจาก manpower โดยใช้ id
-    missing_eff["jobtitle"] = missing_eff["jobtitle"].fillna(
-        missing_eff.merge(manpower[["id", "jobtitle"]], on="id", how="left")["jobtitle_y"]
-    )
+        # ---------------------------------------------------------
+        # 5️⃣ เติม jobtitle ตามเงื่อนไข
+        # ---------------------------------------------------------
+        st.write("🧩 กำลังเติมค่า jobtitle ...")
 
-    # ---------------------------------------------------------
-    # 5. เติมค่า eff ตามลำดับเงื่อนไข
-    # ---------------------------------------------------------
-    st.write("⚙️ เติมค่า eff ตามลำดับเงื่อนไข ...")
+        # step 1: lookup จาก raweff โดยใช้ id+gwc
+        raweff["id_gwc_key"] = raweff["id"].astype(str) + "_" + raweff["gwc"].astype(str)
+        missing_eff_initial["id_gwc_key"] = missing_eff_initial["id"].astype(str) + "_" + missing_eff_initial["gwc"].astype(str)
 
-    # step 1: เติมจาก raweff โดยใช้ id, GWC, jobtitle
-    eff_fill = raweff.groupby(["id", "GWC", "jobtitle"], dropna=False)["eff"].mean().reset_index()
-    missing_eff = pd.merge(
-        missing_eff,
-        eff_fill,
-        on=["id", "GWC", "jobtitle"],
-        how="left",
-        suffixes=("", "_from_raweff")
-    )
+        raweff_lookup = raweff[["id_gwc_key", "jobtitle"]].drop_duplicates()
+        missing_eff_initial = pd.merge(missing_eff_initial, raweff_lookup, on="id_gwc_key", how="left", suffixes=("", "_from_raweff"))
 
-    # step 2: ถ้ายังไม่มีค่า eff ให้เติมจาก individual_eff โดยใช้ id เป็นตัวเชื่อม
-    missing_eff["eff"] = missing_eff["eff"].fillna(
-        missing_eff.merge(
-            individual_eff[["id", "eff %"]].rename(columns={"eff %": "eff_from_individual"}),
-            on="id",
-            how="left"
-        )["eff_from_individual"]
-    )
+        missing_eff_initial["jobtitle"] = missing_eff_initial["jobtitle"].fillna(missing_eff_initial["jobtitle_from_raweff"])
+        missing_eff_initial = missing_eff_initial.drop(columns=["jobtitle_from_raweff"])
 
-    # ---------------------------------------------------------
-    # 6. แสดงผลลัพธ์ทั้งหมด
-    # ---------------------------------------------------------
-    st.write("✅ ตารางผลลัพธ์ (ข้อมูลที่ไม่มี eff และได้รับการเติมข้อมูลแล้ว)")
-    st.dataframe(missing_eff)
+        # step 2: ถ้ายังว่าง → ใช้จาก manpower โดย id
+        mp_lookup = manpower[["id", "jobtitle"]].drop_duplicates()
+        missing_eff_initial = pd.merge(missing_eff_initial, mp_lookup, on="id", how="left", suffixes=("", "_from_mp"))
+        missing_eff_initial["jobtitle"] = missing_eff_initial["jobtitle"].fillna(missing_eff_initial["jobtitle_from_mp"])
+        missing_eff_initial = missing_eff_initial.drop(columns=["jobtitle_from_mp"])
 
-    # ปุ่มดาวน์โหลด
-    csv = missing_eff.to_csv(index=False).encode("utf-8-sig")
-    st.download_button(
-        label="💾 Download Result CSV",
-        data=csv,
-        file_name="filled_efficiency.csv",
-        mime="text/csv"
-    )
+        # ---------------------------------------------------------
+        # 6️⃣ เติมค่า eff ที่หายไป
+        # ---------------------------------------------------------
+        st.write("⚙️ กำลังเติมค่า eff ที่หายไป ...")
+
+        # step 1: เติมจาก raweff โดยใช้ id+gwc+jobtitle
+        raweff["id_gwc_jobtitle_key"] = (
+            raweff["id"].astype(str) + "_" + raweff["gwc"].astype(str) + "_" + raweff["jobtitle"].astype(str)
+        )
+        missing_eff_initial["id_gwc_jobtitle_key"] = (
+            missing_eff_initial["id"].astype(str) + "_" + missing_eff_initial["gwc"].astype(str) + "_" + missing_eff_initial["jobtitle"].astype(str)
+        )
+
+        avg_eff_by_combo = raweff.groupby("id_gwc_jobtitle_key", as_index=False)["eff"].mean()
+        missing_eff_initial = pd.merge(
+            missing_eff_initial, avg_eff_by_combo, on="id_gwc_jobtitle_key", how="left", suffixes=("", "_avg_from_raweff")
+        )
+        missing_eff_initial["eff"] = missing_eff_initial["eff"].fillna(missing_eff_initial["eff_avg_from_raweff"])
+        missing_eff_initial = missing_eff_initial.drop(columns=["eff_avg_from_raweff"])
+
+        # step 2: ถ้ายังว่าง → เติมจาก individual_efficiency โดย id
+        ind_eff["eff %"] = pd.to_numeric(ind_eff["eff %"], errors="coerce")
+        avg_ind_eff = ind_eff.groupby("id", as_index=False)["eff %"].mean().rename(columns={"eff %": "avg_eff"})
+        missing_eff_initial = pd.merge(missing_eff_initial, avg_ind_eff, on="id", how="left")
+        missing_eff_initial["eff"] = missing_eff_initial["eff"].fillna(missing_eff_initial["avg_eff"])
+        missing_eff_initial = missing_eff_initial.drop(columns=["avg_eff"])
+
+        # ---------------------------------------------------------
+        # 7️⃣ แสดงผล "หลังจากเติมข้อมูลแล้ว"
+        # ---------------------------------------------------------
+        st.success(f"✅ พบพนักงานที่ไม่มี eff เดิมทั้งหมด {len(missing_eff_initial)} คน (หลังเติมข้อมูลแล้ว)")
+
+        st.dataframe(missing_eff_initial, use_container_width=True)
+
+        csv = missing_eff_initial.to_csv(index=False, encoding="utf-8-sig")
+        st.download_button(
+            label="💾 ดาวน์โหลดไฟล์ filled_eff_result.csv",
+            data=csv,
+            file_name="filled_eff_result.csv",
+            mime="text/csv"
+        )
 
 else:
-    st.info("📥 กรุณาอัปโหลดไฟล์ทั้งหมดก่อนเริ่มทำงาน")
+    st.info("📥 กรุณาอัปโหลดไฟล์ CSV ทั้ง 5 ไฟล์ก่อนเริ่มทำงาน")
