@@ -24,8 +24,6 @@ if manpower_file and stylelist_file and raweff_file and mastergwc_file and indiv
     individual_eff = pd.read_csv(individual_eff_file)
 
     st.success("✅ ทุกไฟล์โหลดสำเร็จแล้ว!")
-for df in [manpower, stylelist, raweff, individual_eff, master_gwc]:
-    df.columns = df.columns.str.lower().str.strip()
 
     
     # ---------------------------------------------------------
