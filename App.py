@@ -28,7 +28,8 @@ if all([manpower_file, stylelist_file, raweff_file, ind_eff_file, master_gwc_fil
         ind_eff = pd.read_csv(ind_eff_file, low_memory=False)
         master_gwc = pd.read_csv(master_gwc_file)
 
-        # แปลงชื่อคอลัมน์เป็นตัวพิมพ์เล็ก
+        # แปลงชื่อคอลัมน์เป็นตัวพิมพ์เล็กและตัดช่องว่าง (ตามคำขอ)
+        # Convert column names to lowercase and strip whitespace (as requested and already implemented)
         for df in [manpower, stylelist, raweff, ind_eff, master_gwc]:
             df.columns = df.columns.str.lower().str.strip()
 
@@ -70,7 +71,7 @@ if all([manpower_file, stylelist_file, raweff_file, ind_eff_file, master_gwc_fil
         # ---------------------------------------------------------
         st.write("🧩 กำลังเติมค่า jobtitle ...")
 
-        # step 1: lookup จาก raweff โดยใช้ id+gwc
+        # step 1: lookup จาก raweff โดยใช้ id + gwc
         raweff["id_gwc_key"] = raweff["id"].astype(str) + "_" + raweff["gwc"].astype(str)
         missing_eff_initial["id_gwc_key"] = missing_eff_initial["id"].astype(str) + "_" + missing_eff_initial["gwc"].astype(str)
 
@@ -107,18 +108,23 @@ if all([manpower_file, stylelist_file, raweff_file, ind_eff_file, master_gwc_fil
         missing_eff_initial = missing_eff_initial.drop(columns=["eff_avg_from_raweff"])
 
         # step 2: ถ้ายังว่าง → เติมจาก individual_efficiency โดย id
+        # Clean and convert 'eff %' to numeric first
         ind_eff["eff %"] = pd.to_numeric(ind_eff["eff %"], errors="coerce")
         avg_ind_eff = ind_eff.groupby("id", as_index=False)["eff %"].mean().rename(columns={"eff %": "avg_eff"})
         missing_eff_initial = pd.merge(missing_eff_initial, avg_ind_eff, on="id", how="left")
         missing_eff_initial["eff"] = missing_eff_initial["eff"].fillna(missing_eff_initial["avg_eff"])
         missing_eff_initial = missing_eff_initial.drop(columns=["avg_eff"])
-
+        
         # ---------------------------------------------------------
         # 7️⃣ แสดงผล "หลังจากเติมข้อมูลแล้ว"
         # ---------------------------------------------------------
         st.success(f"✅ พบพนักงานที่ไม่มี eff เดิมทั้งหมด {len(missing_eff_initial)} คน (หลังเติมข้อมูลแล้ว)")
 
-        st.dataframe(missing_eff_initial, use_container_width=True)
+        # เลือกคอลัมน์ที่ต้องการแสดงผลและเปลี่ยนชื่อคอลัมน์ให้เป็นภาษาไทยเพื่อความสวยงาม
+        display_cols = missing_eff_initial[["id", "line", "style", "jobtitle", "gwc", "eff", "id_gwc_key", "id_gwc_jobtitle_key"]].copy()
+        display_cols.columns = ["ID", "Line", "Style", "Job Title", "GWC", "Efficiency (Filled)", "ID_GWC_Key", "ID_GWC_JobTitle_Key"]
+        
+        st.dataframe(display_cols, use_container_width=True)
 
         csv = missing_eff_initial.to_csv(index=False, encoding="utf-8-sig")
         st.download_button(
