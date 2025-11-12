@@ -64,7 +64,7 @@ if all([manpower_file, stylelist_file, raweff_file, ind_eff_file, master_gwc_fil
         # ---------------------------------------------------------
         st.write("🔗 กำลังรวมข้อมูลพื้นฐาน...")
         merged = pd.merge(manpower, stylelist, on="line", how="left")
-        final_table = merged[["id", "line", "style"]].copy()
+        final_table = merged[["id", "line", "style","jobtitle"]].copy()
 
         # 4.1 เติมค่า GWC จาก Master GWC
         final_table = pd.merge(final_table, master_gwc[["style", "gwc"]], on="style", how="left")
@@ -91,8 +91,8 @@ if all([manpower_file, stylelist_file, raweff_file, ind_eff_file, master_gwc_fil
         raweff_lookup = raweff[["id_gwc_key", "jobtitle"]].drop_duplicates()
         missing_eff_initial = pd.merge(missing_eff_initial, raweff_lookup, on="id_gwc_key", how="left", suffixes=("", "_from_raweff"))
 
-        #missing_eff_initial["jobtitle"] = missing_eff_initial["jobtitle"].fillna(missing_eff_initial["jobtitle_from_raweff"])
-        #missing_eff_initial = missing_eff_initial.drop(columns=["jobtitle_from_raweff"])
+        missing_eff_initial["jobtitle"] = missing_eff_initial["jobtitle"].fillna(missing_eff_initial["jobtitle_from_raweff"])
+        missing_eff_initial = missing_eff_initial.drop(columns=["jobtitle_from_raweff"])
 
         # step 2: ถ้ายังว่าง → ใช้จาก manpower โดย id
         mp_lookup = manpower[["id", "jobtitle"]].drop_duplicates()
