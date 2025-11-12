@@ -89,6 +89,9 @@ if all([manpower_file, stylelist_file, raweff_file, ind_eff_file, master_gwc_fil
         # Merge เข้ามาในคอลัมน์ใหม่ชื่อ 'existing_eff' เพื่อความชัดเจน
         final_table = pd.merge(final_table, existing_eff_agg, on=["id", "style"], how="left")
 
+        # 4.1 เติมค่า GWC จาก Master GWC
+        final_table = pd.merge(final_table, master_gwc[["style", "gwc"]], on="style", how="left")
+        
         # --- 🔍 เก็บชุดข้อมูลที่ "ไม่มี eff เดิม" ก่อนจะเติม ---
         # กรองเฉพาะแถวที่คอลัมน์ 'existing_eff' (ที่ถูก merge เข้ามา) เป็น NaN
         # และสร้างคอลัมน์ 'eff' สำหรับการเติมในขั้นตอนถัดไป
@@ -100,9 +103,6 @@ if all([manpower_file, stylelist_file, raweff_file, ind_eff_file, master_gwc_fil
         # ลบคอลัมน์ existing_eff ออกจากชุดข้อมูลที่ใช้ process ต่อ
         missing_eff_initial = missing_eff_initial.drop(columns=['existing_eff'])
         
-        # 4.1 เติมค่า GWC จาก Master GWC
-        final_table = pd.merge(final_table, master_gwc[["style", "gwc"]], on="style", how="left")
-
         # ---------------------------------------------------------
         # 5️⃣ เติม jobtitle ตามเงื่อนไข (ในชุดข้อมูลที่ไม่มี eff)
         # ---------------------------------------------------------
