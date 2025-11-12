@@ -30,7 +30,7 @@ if all([manpower_file, stylelist_file, raweff_file, ind_eff_file, master_gwc_fil
 
         # แปลงชื่อคอลัมน์เป็นตัวพิมพ์เล็ก
         for df in [manpower, stylelist, raweff, ind_eff, master_gwc]:
-            df.columns = df.columns.str.lower()
+            df.columns = df.columns.str.lower().str.strip()
 
         # ---------------------------------------------------------
         # 3️⃣ ตรวจสอบคอลัมน์ที่จำเป็น
@@ -38,7 +38,7 @@ if all([manpower_file, stylelist_file, raweff_file, ind_eff_file, master_gwc_fil
         required_cols = {
             "manpower": {"id", "line", "jobtitle"},
             "stylelist": {"line", "style"},
-            "raweff": {"id", "style", "eff", "jobtitle", "id&gwc", "id&gwc&jobtitle"},
+            "raweff": {"id", "style", "eff", "jobtitle", "gwc"},
             "individual_efficiency": {"id", "eff %"},
             "master_gwc": {"style", "gwc"},
         }
@@ -59,20 +59,20 @@ if all([manpower_file, stylelist_file, raweff_file, ind_eff_file, master_gwc_fil
         # เติมค่า GWC จาก Master GWC
         final_table = pd.merge(final_table, master_gwc[["style", "gwc"]], on="style", how="left")
 
-        # เติมค่า eff จาก raweff
+        # เติมค่า eff จาก raweff (เชื่อมด้วย id + style)
         final_table = pd.merge(final_table, raweff[["id", "style", "eff"]], on=["id", "style"], how="left")
-
-        # สร้างคอลัมน์ ID&GWC สำหรับ lookup jobtitle
-        final_table["id&gwc"] = final_table["id"].astype(str) + final_table["gwc"].astype(str)
 
         # ---------------------------------------------------------
         # 5️⃣ เติม jobtitle ตามเงื่อนไข
         # ---------------------------------------------------------
         st.write("🧩 กำลังเติมค่า jobtitle ...")
 
-        # step 1: lookup จาก raweff โดยใช้ id&gwc
-        raweff_lookup = raweff[["id&gwc", "jobtitle"]].drop_duplicates()
-        final_table = pd.merge(final_table, raweff_lookup, on="id&gwc", how="left", suffixes=("", "_from_raweff"))
+        # step 1: lookup จาก raweff โดยใช้ id+gwc
+        raweff["id_gwc_key"] = raweff["id"].astype(str) + "_" + raweff["gwc"].astype(str)
+        final_table["id_gwc_key"] = final_table["id"].astype(str) + "_" + final_table["gwc"].astype(str)
+
+        raweff_lookup = raweff[["id_gwc_key", "jobtitle"]].drop_duplicates()
+        final_table = pd.merge(final_table, raweff_lookup, on="id_gwc_key", how="left", suffixes=("", "_from_raweff"))
 
         # ถ้า jobtitle เดิมว่าง → ใช้จาก raweff
         final_table["jobtitle"] = final_table["jobtitle"].fillna(final_table["jobtitle_from_raweff"])
@@ -89,12 +89,16 @@ if all([manpower_file, stylelist_file, raweff_file, ind_eff_file, master_gwc_fil
         # ---------------------------------------------------------
         st.write("⚙️ กำลังเติมค่า eff ที่หายไป ...")
 
-        # step 1: เติมจาก raweff โดยใช้ id&gwc&jobtitle
-        final_table["id&gwc&jobtitle"] = final_table["id"].astype(str) + final_table["gwc"].astype(str) + final_table["jobtitle"].astype(str)
-        raweff["id&gwc&jobtitle"] = raweff["id&gwc&jobtitle"].astype(str)
-        avg_eff_by_combo = raweff.groupby("id&gwc&jobtitle", as_index=False)["eff"].mean()
-        final_table = pd.merge(final_table, avg_eff_by_combo, on="id&gwc&jobtitle", how="left", suffixes=("", "_avg_from_raweff"))
+        # step 1: เติมจาก raweff โดยใช้ id+gwc+jobtitle
+        raweff["id_gwc_jobtitle_key"] = (
+            raweff["id"].astype(str) + "_" + raweff["gwc"].astype(str) + "_" + raweff["jobtitle"].astype(str)
+        )
+        final_table["id_gwc_jobtitle_key"] = (
+            final_table["id"].astype(str) + "_" + final_table["gwc"].astype(str) + "_" + final_table["jobtitle"].astype(str)
+        )
 
+        avg_eff_by_combo = raweff.groupby("id_gwc_jobtitle_key", as_index=False)["eff"].mean()
+        final_table = pd.merge(final_table, avg_eff_by_combo, on="id_gwc_jobtitle_key", how="left", suffixes=("", "_avg_from_raweff"))
         final_table["eff"] = final_table["eff"].fillna(final_table["eff_avg_from_raweff"])
         final_table = final_table.drop(columns=["eff_avg_from_raweff"])
 
@@ -102,12 +106,11 @@ if all([manpower_file, stylelist_file, raweff_file, ind_eff_file, master_gwc_fil
         ind_eff["eff %"] = pd.to_numeric(ind_eff["eff %"], errors="coerce")
         avg_ind_eff = ind_eff.groupby("id", as_index=False)["eff %"].mean().rename(columns={"eff %": "avg_eff"})
         final_table = pd.merge(final_table, avg_ind_eff, on="id", how="left")
-
         final_table["eff"] = final_table["eff"].fillna(final_table["avg_eff"])
         final_table = final_table.drop(columns=["avg_eff"])
 
         # ---------------------------------------------------------
-        # 7️⃣ แสดงผลเฉพาะพนักงานที่ eff ว่างตอนเริ่มต้น
+        # 7️⃣ แสดงผลเฉพาะพนักงานที่ eff ยังว่าง
         # ---------------------------------------------------------
         missing_eff = final_table[final_table["eff"].isna()].sort_values(by=["line", "id"])
 
