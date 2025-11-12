@@ -64,7 +64,7 @@ if all([manpower_file, stylelist_file, raweff_file, ind_eff_file, master_gwc_fil
         # ---------------------------------------------------------
         st.write("🔗 กำลังรวมข้อมูลพื้นฐาน...")
         merged = pd.merge(manpower, stylelist, on="line", how="left")
-        final_table = merged[["id", "line", "style", "jobtitle"]].copy()
+        final_table = merged[["id", "line", "style"]].copy()
 
         # 4.1 เติมค่า GWC จาก Master GWC
         final_table = pd.merge(final_table, master_gwc[["style", "gwc"]], on="style", how="left")
