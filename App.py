@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 st.set_page_config(page_title="Efficiency Checker (Advanced)", page_icon="📊", layout="wide")
-st.title("📊 Efficiency Checker Tool (Advanced Version)")
+st.title("📊 Efficiency Checker Tool")
 st.write("อัปโหลดไฟล์ทั้ง 5 แล้วกดปุ่มเพื่อดูพนักงานที่ยังไม่มีค่า Eff (ก่อนเติมข้อมูล) พร้อมผลลัพธ์หลังเติมตามเงื่อนไข")
 
 # ---------------------------------------------------------
