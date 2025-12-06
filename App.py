@@ -8,11 +8,11 @@ st.write("อัปโหลดไฟล์ทั้ง 5 แล้วกดป�
 # ---------------------------------------------------------
 # 1️⃣ Upload files
 # ---------------------------------------------------------
-manpower_file = st.file_uploader("📂 Upload Manpower CSV", type=["csv"])
-stylelist_file = st.file_uploader("📂 Upload Stylelist CSV", type=["csv"], key="stylelist")
-raweff_file = st.file_uploader("📂 Upload Raweff CSV", type=["csv"], key="raweff")
-ind_eff_file = st.file_uploader("📂 Upload Individual Efficiency CSV", type=["csv"], key="ind_eff")
-master_gwc_file = st.file_uploader("📂 Upload Master GWC CSV", type=["csv"], key="master_gwc")
+manpower_file = st.file_uploader("📂 Upload Manpower", type=["csv"])
+stylelist_file = st.file_uploader("📂 Upload Stylelist", type=["csv"], key="stylelist")
+raweff_file = st.file_uploader("📂 Upload Raweff", type=["csv"], key="raweff")
+ind_eff_file = st.file_uploader("📂 Upload Individual Efficiency", type=["csv"], key="ind_eff")
+master_gwc_file = st.file_uploader("📂 Upload Master GWC", type=["csv"], key="master_gwc")
 
 if all([manpower_file, stylelist_file, raweff_file, ind_eff_file, master_gwc_file]):
     st.success("✅ Upload ครบทั้ง 5 ไฟล์แล้ว พร้อมตรวจสอบ")
